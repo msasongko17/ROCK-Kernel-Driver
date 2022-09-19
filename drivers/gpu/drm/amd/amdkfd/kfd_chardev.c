@@ -53,6 +53,7 @@ static long kfd_ioctl(struct file *, unsigned int, unsigned long);
 static int kfd_open(struct inode *, struct file *);
 static int kfd_release(struct inode *, struct file *);
 static int kfd_mmap(struct file *, struct vm_area_struct *);
+int amdgpu_interrupt_count;
 
 static const char kfd_dev_name[] = "kfd";
 
@@ -114,6 +115,8 @@ static int kfd_open(struct inode *inode, struct file *filep)
 	struct kfd_process *process;
 	bool is_32bit_user_mode;
 
+	amdgpu_interrupt_count = 0;
+	printk(KERN_INFO "kfd_open is called\n");
 	if (iminor(inode) != 0)
 		return -ENODEV;
 
@@ -156,6 +159,8 @@ static int kfd_release(struct inode *inode, struct file *filep)
 {
 	struct kfd_process *process = filep->private_data;
 
+	printk(KERN_INFO "amdgpu_interrupt_count = %d\n", amdgpu_interrupt_count);
+	amdgpu_interrupt_count = 0;
 	if (process)
 		kfd_unref_process(process);
 

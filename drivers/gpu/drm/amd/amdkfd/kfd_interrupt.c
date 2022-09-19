@@ -47,6 +47,7 @@
 #include "kfd_priv.h"
 
 #define KFD_IH_NUM_ENTRIES 8192
+//extern int amdgpu_interrupt_count; 
 
 static void interrupt_wq(struct work_struct *);
 
@@ -54,6 +55,7 @@ int kfd_interrupt_init(struct kfd_dev *kfd)
 {
 	int r;
 
+	//printk(KERN_INFO "kfd_interrupt_init is called\n");
 	r = kfifo_alloc(&kfd->ih_fifo,
 		KFD_IH_NUM_ENTRIES * kfd->device_info.ih_ring_entry_size,
 		GFP_KERNEL);
@@ -147,6 +149,8 @@ static void interrupt_wq(struct work_struct *work)
 						interrupt_work);
 	uint32_t ih_ring_entry[KFD_MAX_RING_ENTRY_SIZE];
 
+	//printk(KERN_INFO "interrupt_wq is called\n");
+	//amdgpu_interrupt_count++;
 	if (dev->device_info.ih_ring_entry_size > sizeof(ih_ring_entry)) {
 		dev_err_once(dev->adev->dev, "Ring entry too small\n");
 		return;

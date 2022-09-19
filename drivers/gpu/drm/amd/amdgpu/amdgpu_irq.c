@@ -65,6 +65,8 @@
 
 #define AMDGPU_WAIT_IDLE_TIMEOUT 200
 
+extern int amdgpu_interrupt_count;
+
 const char *soc15_ih_clientid_name[] = {
 	"IH",
 	"SDMA2 or ACP",
@@ -200,6 +202,7 @@ irqreturn_t amdgpu_irq_handler(int irq, void *arg)
 	struct amdgpu_device *adev = drm_to_adev(dev);
 	irqreturn_t ret;
 
+	amdgpu_interrupt_count++;
 	ret = amdgpu_ih_process(adev, &adev->irq.ih);
 	if (ret == IRQ_HANDLED)
 		pm_runtime_mark_last_busy(dev->dev);
