@@ -66,6 +66,12 @@
 #define AMDGPU_WAIT_IDLE_TIMEOUT 200
 
 extern int amdgpu_interrupt_count;
+extern int callback_handling_count;
+
+extern int * mem_offset;
+extern uint64_t mem_size;
+extern int callback_buffer[20];
+extern int callback_var;
 
 const char *soc15_ih_clientid_name[] = {
 	"IH",
@@ -201,8 +207,31 @@ irqreturn_t amdgpu_irq_handler(int irq, void *arg)
 	struct drm_device *dev = (struct drm_device *) arg;
 	struct amdgpu_device *adev = drm_to_adev(dev);
 	irqreturn_t ret;
+	int err_in_copy;
 
-	amdgpu_interrupt_count++;
+	//amdgpu_interrupt_count++;
+#if 0
+	if (mem_offset != NULL && mem_size > 0) {
+		err_in_copy = copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(int));
+		if(callback_buffer[0] == 1 /*mem_size > 0*/) {
+			callback_handling_count++;
+			callback_buffer[0] = 0;
+                        //mem_size = 0;
+		}
+	}
+#endif
+//#if 0
+	if (mem_offset != NULL) {
+                err_in_copy = get_user (callback_var, mem_offset);
+		amdgpu_interrupt_count++;
+                if(callback_var == 1 /*mem_size > 0*/) {
+                        callback_handling_count++;
+                        callback_var = 0;
+                        //mem_size = 0;
+                }
+        }
+//#endif
+
 	ret = amdgpu_ih_process(adev, &adev->irq.ih);
 	if (ret == IRQ_HANDLED)
 		pm_runtime_mark_last_busy(dev->dev);

@@ -49,13 +49,15 @@
 #define KFD_IH_NUM_ENTRIES 8192
 //extern int amdgpu_interrupt_count; 
 extern int interrupt_wq_count;
-extern int callback_handling_count;
+//extern int callback_handling_count;
 
 static void interrupt_wq(struct work_struct *);
 
+#if 0
 extern int * mem_offset;
 extern uint64_t mem_size;
 extern int callback_buffer[20];
+#endif
 
 int kfd_interrupt_init(struct kfd_dev *kfd)
 {
@@ -155,11 +157,11 @@ static void interrupt_wq(struct work_struct *work)
 						interrupt_work);
 	uint32_t ih_ring_entry[KFD_MAX_RING_ENTRY_SIZE];
 
-	int err_in_copy;
+	//int err_in_copy;
 	//printk(KERN_INFO "interrupt_wq is called\n");
 	//amdgpu_interrupt_count++;
 	interrupt_wq_count++;
-//#if 0
+#if 0
 	if (mem_offset != NULL && mem_size > 0) {
 		err_in_copy = copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(int));
 		if(callback_buffer[0] == 1 /*mem_size > 0*/) {
@@ -168,7 +170,7 @@ static void interrupt_wq(struct work_struct *work)
 			//mem_size = 0;
 		}
 	}
-//#endif
+#endif
 	if (dev->device_info.ih_ring_entry_size > sizeof(ih_ring_entry)) {
 		dev_err_once(dev->adev->dev, "Ring entry too small\n");
 		return;

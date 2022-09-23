@@ -52,6 +52,7 @@
 #define SET_MEM_OFFSET 103
 #define SET_MEM_SIZE 104
 #define CHECK_MEM 105
+#define CHECK_VAR 106
 
 static long kfd_ioctl(struct file *, unsigned int, unsigned long);
 static int kfd_open(struct inode *, struct file *);
@@ -79,6 +80,7 @@ struct device *kfd_device;
 int * mem_offset = 0;
 uint64_t mem_size = 0;
 int callback_buffer[20];
+int callback_var;
 
 int kfd_chardev_init(void)
 {
@@ -4051,6 +4053,7 @@ static long kfd_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
         switch(cmd) {
                 case SET_MEM_OFFSET:
                         mem_offset = (int *) arg;
+			callback_var = 0;
                         goto err_i1;
                 case SET_MEM_SIZE:
                         mem_size = (uint64_t) arg;
@@ -4068,6 +4071,12 @@ static long kfd_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
                         	printk(KERN_INFO "%d ", callback_buffer[i]);
                         printk(KERN_INFO "\n");
                         goto err_i1;
+		case CHECK_VAR:
+			//err_in_copy = copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(int));
+			get_user(callback_var, mem_offset);
+                        if(err_in_copy != 0)
+                                printk(KERN_ERR "Error in getting variable from user\n");	
+			printk(KERN_INFO "callback_var: %d\n", callback_var);
 #if 0
                 case FREE_MEM:
                         kfree(callback_buffer);
