@@ -49,11 +49,17 @@
 #include "kfd_smi_events.h"
 #include "amdgpu_dma_buf.h"
 
+#define SET_MEM_OFFSET 103
+#define SET_MEM_SIZE 104
+#define CHECK_MEM 105
+
 static long kfd_ioctl(struct file *, unsigned int, unsigned long);
 static int kfd_open(struct inode *, struct file *);
 static int kfd_release(struct inode *, struct file *);
 static int kfd_mmap(struct file *, struct vm_area_struct *);
 int amdgpu_interrupt_count;
+int interrupt_wq_count;
+int callback_handling_count;
 
 static const char kfd_dev_name[] = "kfd";
 
@@ -69,6 +75,10 @@ static const struct file_operations kfd_fops = {
 static int kfd_char_dev_major = -1;
 static struct class *kfd_class;
 struct device *kfd_device;
+
+int * mem_offset = 0;
+uint64_t mem_size = 0;
+int callback_buffer[20];
 
 int kfd_chardev_init(void)
 {
@@ -116,6 +126,8 @@ static int kfd_open(struct inode *inode, struct file *filep)
 	bool is_32bit_user_mode;
 
 	amdgpu_interrupt_count = 0;
+	interrupt_wq_count = 0;
+	callback_handling_count = 0;
 	printk(KERN_INFO "kfd_open is called\n");
 	if (iminor(inode) != 0)
 		return -ENODEV;
@@ -160,7 +172,11 @@ static int kfd_release(struct inode *inode, struct file *filep)
 	struct kfd_process *process = filep->private_data;
 
 	printk(KERN_INFO "amdgpu_interrupt_count = %d\n", amdgpu_interrupt_count);
+	printk(KERN_INFO "interrupt_wq_count = %d\n", interrupt_wq_count);
+	printk(KERN_INFO "callback_handling_count = %d\n", callback_handling_count);
+	callback_handling_count = 0;
 	amdgpu_interrupt_count = 0;
+	interrupt_wq_count = 0;
 	if (process)
 		kfd_unref_process(process);
 
@@ -4028,6 +4044,37 @@ static long kfd_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	unsigned int usize, asize;
 	int retcode = -EINVAL;
 	bool ptrace_attached = false;
+
+// before
+	int i;
+        int err_in_copy;
+        switch(cmd) {
+                case SET_MEM_OFFSET:
+                        mem_offset = (int *) arg;
+                        goto err_i1;
+                case SET_MEM_SIZE:
+                        mem_size = (uint64_t) arg;
+			printk(KERN_INFO "mem_size: %lld\n", mem_size);
+                        //callback_buffer = (int *) kmalloc (mem_size * sizeof(int), GFP_KERNEL);
+			callback_buffer[0] = 0;
+                        goto err_i1;
+                case CHECK_MEM:
+                        printk(KERN_INFO "mem_size: %lld, mem_offset: %lx\n", mem_size, (long unsigned int) mem_offset);
+                        err_in_copy = copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(int));
+                        if(err_in_copy != 0)
+                                printk(KERN_ERR "Error in copy_from_user\n");
+                        for(i = 0; i < mem_size; i++)
+                        	//*(mem_offset+i) = i;
+                        	printk(KERN_INFO "%d ", callback_buffer[i]);
+                        printk(KERN_INFO "\n");
+                        goto err_i1;
+#if 0
+                case FREE_MEM:
+                        kfree(callback_buffer);
+			goto err_i1;
+#endif
+        }	
+// after
 
 	if (((nr >= AMDKFD_COMMAND_START) && (nr < AMDKFD_COMMAND_END)) ||
 	    ((nr >= AMDKFD_COMMAND_START_2) && (nr < AMDKFD_COMMAND_END_2))) {
