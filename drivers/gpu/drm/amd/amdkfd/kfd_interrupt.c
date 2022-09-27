@@ -49,6 +49,8 @@
 #define KFD_IH_NUM_ENTRIES 8192
 //extern int amdgpu_interrupt_count; 
 extern int interrupt_wq_count;
+extern int interrupt_wdt_count;
+extern int interrupt_enqueue_ih_ring_count;
 //extern int callback_handling_count;
 
 static void interrupt_wq(struct work_struct *);
@@ -101,6 +103,7 @@ static void interrupt_wdt(struct work_struct *work)
 
         /* Early checks without lock, to reduce contention */
         // If we race with a new task creation, it will take some time to timeout
+	interrupt_wdt_count++;
         if (!kfd->irq_task_in_progress)
                 return;
 
@@ -276,6 +279,7 @@ bool enqueue_ih_ring_entry(struct kfd_dev *kfd, const void *ih_ring_entry)
 
         // TODO: Maybe consider other queues? setup our own queue?
         // use system default for now
+	interrupt_enqueue_ih_ring_count++;
         if (!kfd->irq_wq || !queue_work(kfd->irq_wq, &work->interrupt_work)) {
                 //dev_err_ratelimited(kfd_chardev(), "KFD: Failed to chedule work\n");
 		printk(KERN_ERR "KFD: Failed to schedule interrupt work %s\n", kfd->irq_wq ? "" : "(NO workqueue)");
@@ -343,6 +347,7 @@ static void interrupt_wq(struct work_struct *work)
         struct ih_work *w = container_of(work, struct ih_work, interrupt_work);
 	size_t packet_size = w->kfd->device_info.ih_ring_entry_size;
 	int i;
+	interrupt_wq_count++;
 
         for (i = 0; i < w->packets; ++i) {
                 w->kfd->device_info.event_interrupt_class->interrupt_wq(w->kfd,

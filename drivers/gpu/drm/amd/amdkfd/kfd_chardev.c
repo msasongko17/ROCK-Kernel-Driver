@@ -60,7 +60,9 @@ static int kfd_release(struct inode *, struct file *);
 static int kfd_mmap(struct file *, struct vm_area_struct *);
 int amdgpu_interrupt_count;
 int interrupt_wq_count;
+int interrupt_wdt_count;
 int callback_handling_count;
+int interrupt_enqueue_ih_ring_count;
 
 static const char kfd_dev_name[] = "kfd";
 
@@ -129,6 +131,8 @@ static int kfd_open(struct inode *inode, struct file *filep)
 
 	amdgpu_interrupt_count = 0;
 	interrupt_wq_count = 0;
+	interrupt_wdt_count = 0;
+	interrupt_enqueue_ih_ring_count = 0;
 	callback_handling_count = 0;
 	printk(KERN_INFO "kfd_open is called\n");
 	if (iminor(inode) != 0)
@@ -175,10 +179,14 @@ static int kfd_release(struct inode *inode, struct file *filep)
 
 	printk(KERN_INFO "amdgpu_interrupt_count = %d\n", amdgpu_interrupt_count);
 	printk(KERN_INFO "interrupt_wq_count = %d\n", interrupt_wq_count);
+	printk(KERN_INFO "interrupt_wdt_count = %d\n", interrupt_wdt_count);
+	printk(KERN_INFO "interrupt_enqueue_ih_ring_count = %d\n", interrupt_enqueue_ih_ring_count);
 	printk(KERN_INFO "callback_handling_count = %d\n", callback_handling_count);
 	callback_handling_count = 0;
 	amdgpu_interrupt_count = 0;
 	interrupt_wq_count = 0;
+	interrupt_wdt_count = 0;
+	interrupt_enqueue_ih_ring_count = 0;
 	if (process)
 		kfd_unref_process(process);
 
