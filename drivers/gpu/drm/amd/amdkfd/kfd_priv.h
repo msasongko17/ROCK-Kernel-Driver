@@ -187,6 +187,21 @@ extern int ignore_crat;
 extern int amdgpu_noretry;
 
 /*
+ * Kernel module parameter so control interrupt coalescing magnitude.
+ */
+extern unsigned short interrupts_per_task;
+
+/*
+ * Kernel module parameter to control interrupt coalescing time slot.
+ */
+extern unsigned short interrupts_coalesce_delay;
+
+/*
+ * Kernel module parameter to control interrupt coalescing timer reset.
+ */
+extern bool interrupts_delay_extend;
+
+/*
  * Enable privileged mode for all CP queues including user queues
  */
 extern int priv_cp_queues;
@@ -261,6 +276,9 @@ struct kfd_vmid_info {
 	uint32_t last_vmid_kfd;
 	uint32_t vmid_num_kfd;
 };
+
+//TODO: this can be dynamic
+#define KFD_INTERRUPT_RING_SIZE 1024
 
 struct kfd_dev {
 	struct amdgpu_device *adev;
@@ -363,6 +381,10 @@ struct kfd_dev {
 
 	/* HMM page migration MEMORY_DEVICE_PRIVATE mapping */
 	struct dev_pagemap pgmap;
+	struct delayed_work irq_watchdog;
+	struct workqueue_struct *irq_wq;
+	struct ih_work * irq_task_in_progress;
+	u64 in_progress_time_stamp;
 };
 
 struct kfd_ipc_obj;

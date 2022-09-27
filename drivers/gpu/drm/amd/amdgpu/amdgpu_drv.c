@@ -656,6 +656,21 @@ MODULE_PARM_DESC(noretry,
 	"Disable retry faults (0 = retry enabled, 1 = retry disabled, -1 auto (default))");
 module_param_named(noretry, amdgpu_noretry, int, 0644);
 
+unsigned short interrupts_per_task = 1;
+module_param(interrupts_per_task, ushort, 0644);
+MODULE_PARM_DESC(interrupts_per_task,
+        "Number of interrupts to coalesce into one wq task (1 = default)");
+
+unsigned short interrupts_coalesce_delay = 0;
+module_param(interrupts_coalesce_delay, ushort, 0644);
+MODULE_PARM_DESC(interrupts_coalesce_delay,
+        "Time to wait for coalesced interrupts (ms) (0 = default)");
+
+bool interrupts_delay_extend = false;
+module_param(interrupts_delay_extend, bool, 0644);
+MODULE_PARM_DESC(interrupts_delay_extend,
+        "Extend the coalescing timer each time an interrupt is recieved (false =default)");
+
 /**
  * DOC: force_asic_type (int)
  * A non negative value used to specify the asic type for all supported GPUs.

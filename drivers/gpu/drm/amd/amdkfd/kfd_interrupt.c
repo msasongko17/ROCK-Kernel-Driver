@@ -53,12 +53,71 @@ extern int interrupt_wq_count;
 
 static void interrupt_wq(struct work_struct *);
 
+struct ih_work {
+       struct work_struct interrupt_work;
+       struct kfd_dev *kfd;
+	int max_packets;
+	int packets;
+      char data[];
+};
+
 #if 0
 extern int * mem_offset;
 extern uint64_t mem_size;
 extern int callback_buffer[20];
 #endif
 
+static size_t ih_work_size(struct kfd_dev *kfd, int packets)
+{
+       return sizeof(struct ih_work) + (kfd->device_info.ih_ring_entry_size * packets);
+}
+
+static struct ih_work * ih_work_alloc(struct kfd_dev *kfd)
+{
+       int packets = max((unsigned short)1, interrupts_per_task);
+       struct ih_work *work = kzalloc(ih_work_size(kfd, packets), GFP_ATOMIC);
+       if (work) {
+               INIT_WORK(&work->interrupt_work, interrupt_wq);
+               work->kfd = kfd;
+               work->max_packets = packets;
+               work->packets = 0;
+       }
+       return work;
+}
+
+static void ih_work_add_packet(struct ih_work *w, const void *data)
+{
+        size_t packet_size = w->kfd->device_info.ih_ring_entry_size;
+
+        BUG_ON(w->packets >= w->max_packets);
+        memcpy(w->data + (packet_size * w->packets++), data, packet_size);
+}
+
+static void interrupt_wdt(struct work_struct *work)
+{
+        unsigned long flags;
+        struct kfd_dev *kfd =
+                container_of(work, struct kfd_dev, irq_watchdog.work);
+
+        /* Early checks without lock, to reduce contention */
+        // If we race with a new task creation, it will take some time to timeout
+        if (!kfd->irq_task_in_progress)
+                return;
+
+        spin_lock_irqsave(&kfd->interrupt_lock, flags);
+        // Check task in progress again under lock
+        if (kfd->irq_task_in_progress) {
+                        if (!queue_work(kfd->irq_wq,
+                                        &kfd->irq_task_in_progress->interrupt_work)) {
+                                printk(KERN_ERR "KFD: Failed to schedule interrupt work\n");
+                        } else {
+                                kfd->irq_task_in_progress = NULL;
+                        }
+        }
+        spin_unlock_irqrestore(&kfd->interrupt_lock, flags);
+}
+
+#if 0
 int kfd_interrupt_init(struct kfd_dev *kfd)
 {
 	int r;
@@ -93,6 +152,28 @@ int kfd_interrupt_init(struct kfd_dev *kfd)
 
 	return 0;
 }
+#endif
+
+int kfd_interrupt_init(struct kfd_dev *kfd)
+{
+        spin_lock_init(&kfd->interrupt_lock);
+	INIT_DELAYED_WORK(&kfd->irq_watchdog, interrupt_wdt);
+	kfd->in_progress_time_stamp = 0;
+	kfd->irq_task_in_progress = NULL;
+        kfd->irq_wq = alloc_workqueue("kfd_irq%d", WQ_UNBOUND | WQ_SYSFS, 0, kfd->id);
+        if (!kfd->irq_wq)
+                return ENOMEM;
+        kfd->interrupts_active = true;
+
+        /*
+         * After this function returns, the interrupt will be enabled. This
+         * barrier ensures that the interrupt running on a different processor
+         * sees all the above writes.
+         */
+        smp_wmb();
+
+        return 0;
+}
 
 void kfd_interrupt_exit(struct kfd_dev *kfd)
 {
@@ -103,8 +184,21 @@ void kfd_interrupt_exit(struct kfd_dev *kfd)
 	 */
 	unsigned long flags;
 
+	struct workqueue_struct *wq = kfd->irq_wq;
+	/* Cancel interrupt watchdog if running */
+        cancel_delayed_work_sync(&kfd->irq_watchdog);	
+
 	spin_lock_irqsave(&kfd->interrupt_lock, flags);
+	if (kfd->irq_task_in_progress) {
+                struct ih_work *w = kfd->irq_task_in_progress;
+                kfd->irq_task_in_progress = NULL;
+                if (!kfd->irq_wq || !queue_work(kfd->irq_wq, &w->interrupt_work)) {
+                        printk(KERN_ERR "KFD: Failed to schedule work %s\n", kfd->irq_wq ? "" : "(NO workqueue)");
+                        kfree(w);
+                }
+        }	
 	kfd->interrupts_active = false;
+	kfd->irq_wq = NULL;
 	spin_unlock_irqrestore(&kfd->interrupt_lock, flags);
 
 	/*
@@ -112,17 +206,28 @@ void kfd_interrupt_exit(struct kfd_dev *kfd)
 	 * work-queue items that will access interrupt_ring. New work items
 	 * can't be created because we stopped interrupt handling above.
 	 */
-	flush_workqueue(kfd->ih_wq);
-
-	kfifo_free(&kfd->ih_fifo);
+	flush_workqueue(wq);
+        destroy_workqueue(wq);
+	//flush_scheduled_work();
 }
 
+#if 0
 /*
  * Assumption: single reader/writer. This function is not re-entrant
  */
 bool enqueue_ih_ring_entry(struct kfd_dev *kfd,	const void *ih_ring_entry)
 {
 	int count;
+
+	struct ih_work *work = kzalloc(ih_work_size(kfd), GFP_ATOMIC);
+
+        if (!work) {
+                /* This is very bad, the system is likely to hang. */
+                dev_err_ratelimited(kfd_chardev(),
+                        "Interrupt allocation failed, dropping interrupt.\n");
+                return false;
+        }
+        ih_work_init(work, kfd, ih_ring_entry);
 
 	count = kfifo_in(&kfd->ih_fifo, ih_ring_entry,
 				kfd->device_info.ih_ring_entry_size);
@@ -135,6 +240,53 @@ bool enqueue_ih_ring_entry(struct kfd_dev *kfd,	const void *ih_ring_entry)
 
 	return true;
 }
+#endif
+
+bool enqueue_ih_ring_entry(struct kfd_dev *kfd, const void *ih_ring_entry)
+{
+        struct ih_work *work = kfd->irq_task_in_progress;
+
+	BUG_ON(spin_can_lock(&kfd->interrupt_lock));
+	if (!work)
+                kfd->irq_task_in_progress = work = ih_work_alloc(kfd);
+        if (!work) {
+                /* This is very bad, the system is likely to hang. */
+                //dev_err_ratelimited(kfd_chardev(),
+                printk(KERN_ERR "Interrupt allocation failed, dropping interrupt.\n");
+                return false;
+        }
+
+	BUG_ON(work->kfd != kfd);
+        //ih_work_init(work, kfd, ih_ring_entry);
+	ih_work_add_packet(work, ih_ring_entry);
+	if (work->packets < work->max_packets) {
+                /* Either a new task, or we update on every packet */
+                if (work->packets == 1 || interrupts_delay_extend) {
+                        kfd->in_progress_time_stamp = jiffies;
+                        /* There might have been an old timer running,
+                         * modify it. Ignore failure, if it's waiting for
+                         * interrupt lock it will rechedule automatically */
+                        mod_delayed_work(system_wq, &kfd->irq_watchdog,
+                                         msecs_to_jiffies(interrupts_coalesce_delay));
+                }
+                return true;
+        }
+        /* Work has a full load of packets */
+        kfd->irq_task_in_progress = NULL;	
+
+        // TODO: Maybe consider other queues? setup our own queue?
+        // use system default for now
+        if (!kfd->irq_wq || !queue_work(kfd->irq_wq, &work->interrupt_work)) {
+                //dev_err_ratelimited(kfd_chardev(), "KFD: Failed to chedule work\n");
+		printk(KERN_ERR "KFD: Failed to schedule interrupt work %s\n", kfd->irq_wq ? "" : "(NO workqueue)");
+                kfree(work);
+                return false;
+        }
+	BUG_ON(!delayed_work_pending(&kfd->irq_watchdog) &&
+               kfd->irq_task_in_progress);
+        return true;
+}
+
 
 /*
  * Assumption: single reader/writer. This function is not re-entrant
@@ -151,6 +303,7 @@ static bool dequeue_ih_ring_entry(struct kfd_dev *kfd, void *ih_ring_entry)
 	return count == kfd->device_info.ih_ring_entry_size;
 }
 
+#if 0
 static void interrupt_wq(struct work_struct *work)
 {
 	struct kfd_dev *dev = container_of(work, struct kfd_dev,
@@ -179,6 +332,25 @@ static void interrupt_wq(struct work_struct *work)
 	while (dequeue_ih_ring_entry(dev, ih_ring_entry))
 		dev->device_info.event_interrupt_class->interrupt_wq(dev,
 								ih_ring_entry);
+}
+#endif
+
+/*
+ * Assumption: single reader/writer. This function is not re-entrant
+ */
+static void interrupt_wq(struct work_struct *work)
+{
+        struct ih_work *w = container_of(work, struct ih_work, interrupt_work);
+	size_t packet_size = w->kfd->device_info.ih_ring_entry_size;
+	int i;
+
+        for (i = 0; i < w->packets; ++i) {
+                w->kfd->device_info.event_interrupt_class->interrupt_wq(w->kfd,
+                        (void*)(w->data + (i * packet_size)));
+        }
+        // We are done and the work has been removed from the work queue
+        // nothing should touch this memory
+        kfree(w);
 }
 
 bool interrupt_is_wanted(struct kfd_dev *dev,

@@ -209,7 +209,7 @@ irqreturn_t amdgpu_irq_handler(int irq, void *arg)
 	irqreturn_t ret;
 	int err_in_copy;
 
-	//amdgpu_interrupt_count++;
+	amdgpu_interrupt_count++;
 #if 0
 	if (mem_offset != NULL && mem_size > 0) {
 		err_in_copy = copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(int));
@@ -220,7 +220,7 @@ irqreturn_t amdgpu_irq_handler(int irq, void *arg)
 		}
 	}
 #endif
-//#if 0
+#if 0
 	if (mem_offset != NULL) {
                 err_in_copy = get_user (callback_var, mem_offset);
 		amdgpu_interrupt_count++;
@@ -230,7 +230,7 @@ irqreturn_t amdgpu_irq_handler(int irq, void *arg)
                         //mem_size = 0;
                 }
         }
-//#endif
+#endif
 
 	ret = amdgpu_ih_process(adev, &adev->irq.ih);
 	if (ret == IRQ_HANDLED)
