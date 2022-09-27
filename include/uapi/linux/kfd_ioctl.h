@@ -1057,6 +1057,11 @@ struct kfd_ioctl_cross_memory_copy_args {
 	__u64 bytes_copied;
 };
 
+struct kfd_ioctl_set_syscall_area_args {
+	uint64_t sc_area_address;       /* to KFD */
+	uint32_t sc_elements;           /* to KFD */
+};
+
 /* Guarantee host access to memory */
 #define KFD_IOCTL_SVM_FLAG_HOST_ACCESS 0x00000001
 /* Fine grained coherency between all devices with access */
@@ -1327,8 +1332,11 @@ struct kfd_ioctl_set_xnack_mode_args {
 #define AMDKFD_IOC_CRIU_OP			\
 		AMDKFD_IOWR(0x22, struct kfd_ioctl_criu_args)
 
+#define AMDKFD_IOC_SET_SYSCALL_AREA             \
+                AMDKFD_IOW(0x23, struct kfd_ioctl_set_syscall_area_args)
+
 #define AMDKFD_COMMAND_START		0x01
-#define AMDKFD_COMMAND_END		0x23
+#define AMDKFD_COMMAND_END		0x24
 
 /* non-upstream ioctls */
 #define AMDKFD_IOC_IPC_IMPORT_HANDLE                                    \
