@@ -1062,6 +1062,11 @@ struct kfd_ioctl_set_syscall_area_args {
 	uint32_t sc_elements;           /* to KFD */
 };
 
+struct kfd_ioctl_free_syscall_area_args {
+	uint64_t sc_area_address;       /* from KFD */
+	uint32_t sc_elements;           /* from KFD */
+};
+
 /* Guarantee host access to memory */
 #define KFD_IOCTL_SVM_FLAG_HOST_ACCESS 0x00000001
 /* Fine grained coherency between all devices with access */
@@ -1335,8 +1340,11 @@ struct kfd_ioctl_set_xnack_mode_args {
 #define AMDKFD_IOC_SET_SYSCALL_AREA             \
                 AMDKFD_IOW(0x23, struct kfd_ioctl_set_syscall_area_args)
 
+#define AMDKFD_IOC_FREE_SYSCALL_AREA            \
+		AMDKFD_IOR(0x24, struct kfd_ioctl_free_syscall_area_args)
+
 #define AMDKFD_COMMAND_START		0x01
-#define AMDKFD_COMMAND_END		0x24
+#define AMDKFD_COMMAND_END		0x25
 
 /* non-upstream ioctls */
 #define AMDKFD_IOC_IPC_IMPORT_HANDLE                                    \
