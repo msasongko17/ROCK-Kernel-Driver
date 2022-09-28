@@ -108,6 +108,7 @@ static void kfd_device_info_set_event_interrupt_class(struct kfd_dev *kfd)
 	case IP_VERSION(9, 4, 0): /* VEGA20 */
 	case IP_VERSION(9, 4, 1): /* ARCTURUS */
 	case IP_VERSION(9, 4, 2): /* ALDEBARAN */
+		printk(KERN_INFO "interrupt class: event_interrupt_class_v9\n");
 		kfd->device_info.event_interrupt_class = &event_interrupt_class_v9;
 		break;
 	case IP_VERSION(10, 3, 1): /* VANGOGH */
@@ -143,6 +144,7 @@ static void kfd_device_info_init(struct kfd_dev *kfd,
 	kfd->device_info.gfx_target_version = gfx_target_version;
 
 	if (KFD_IS_SOC15(kfd)) {
+		printk(KERN_INFO "KFD_IS_SOC15 yes\n");
 		kfd->device_info.doorbell_size = 8;
 		kfd->device_info.ih_ring_entry_size = 8 * sizeof(uint32_t);
 		kfd->device_info.supports_cwsr = true;
@@ -168,6 +170,7 @@ static void kfd_device_info_init(struct kfd_dev *kfd,
 				kfd->device_info.needs_pci_atomics = true;
 		}
 	} else {
+		printk(KERN_INFO "KFD_IS_SOC15 no\n");
 		kfd->device_info.doorbell_size = 4;
 		kfd->device_info.ih_ring_entry_size = 4 * sizeof(uint32_t);
 		kfd->device_info.event_interrupt_class = &event_interrupt_class_cik;

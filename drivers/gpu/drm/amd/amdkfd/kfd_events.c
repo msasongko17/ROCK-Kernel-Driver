@@ -47,6 +47,8 @@ struct kfd_event_waiter {
 	bool activated;		 /* Becomes true when event is signaled */
 };
 
+extern int kfd_signal_event_interrupt_count;
+
 /*
  * Each signal event needs a 64-bit signal slot where the signaler will write
  * a 1 before sending an interrupt. (This is needed because some interrupts
@@ -719,14 +721,17 @@ void kfd_signal_event_interrupt(u32 pasid, uint32_t partial_id,
 	 */
 	struct kfd_process *p = kfd_lookup_process_by_pasid(pasid);
 
+	//kfd_signal_event_interrupt_count++;
 	if (!p)
 		return; /* Presumably process exited. */
+	//kfd_signal_event_interrupt_count++;
 
 	if ((valid_id_bits >= INTERRUPT_DATA_BITS) && (partial_id == 0)) {
                 // Use p->lock to track syscall activity
                 // TODO remove this
                 //down_read(&p->lock);
 		mutex_lock(&p->mutex);
+		kfd_signal_event_interrupt_count++;
                 kfd_syscall(p, data);
                 //up_read(&p->lock);
 		mutex_unlock(&p->mutex);

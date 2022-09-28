@@ -78,6 +78,11 @@ int kfd_syscall(struct kfd_process *p, unsigned data)
 		return -EIO;
 	}
 
+	if (!data) {
+                pr_err("KFD_SC: No input data\n");
+                return -EIO;
+        }	
+
 	if (!p->sc_location || !p->sc_kloc) {
 		pr_err("KFD_SC: System call request without registered area\n");
 		return -EIO;

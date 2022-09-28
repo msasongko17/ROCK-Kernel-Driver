@@ -41,6 +41,7 @@ enum SQ_INTERRUPT_ERROR_TYPE {
 	SQ_INTERRUPT_ERROR_TYPE_EDC_FED,
 };
 
+extern int tested_interrupt_handler_count;
 /* SQ_INTERRUPT_WORD_AUTO_CTXID */
 #define SQ_INTERRUPT_WORD_AUTO_CTXID__THREAD_TRACE__SHIFT 0
 #define SQ_INTERRUPT_WORD_AUTO_CTXID__WLT__SHIFT 1
@@ -329,16 +330,19 @@ static void event_interrupt_wq_v9(struct kfd_dev *dev,
 	context_id0 = SOC15_CONTEXT_ID0_FROM_IH_ENTRY(ih_ring_entry);
 	context_id1 = SOC15_CONTEXT_ID1_FROM_IH_ENTRY(ih_ring_entry);
 
+	//tested_interrupt_handler_count++;
 	if (client_id == SOC15_IH_CLIENTID_GRBM_CP ||
 	    client_id == SOC15_IH_CLIENTID_SE0SH ||
 	    client_id == SOC15_IH_CLIENTID_SE1SH ||
 	    client_id == SOC15_IH_CLIENTID_SE2SH ||
 	    client_id == SOC15_IH_CLIENTID_SE3SH) {
+		//tested_interrupt_handler_count++;
 		if (source_id == SOC15_INTSRC_CP_END_OF_PIPE)
 			kfd_signal_event_interrupt(pasid, context_id0, 32, 0);
 		else if (source_id == SOC15_INTSRC_SQ_INTERRUPT_MSG) {
 			sq_int_data = KFD_CONTEXT_ID_GET_SQ_INT_DATA(context_id0, context_id1);
 			encoding = REG_GET_FIELD(context_id0, SQ_INTERRUPT_WORD_WAVE_CTXID, ENCODING);
+			//tested_interrupt_handler_count++;
 			switch (encoding) {
 			case SQ_INTERRUPT_WORD_ENCODING_AUTO:
 				pr_debug(
@@ -392,7 +396,8 @@ static void event_interrupt_wq_v9(struct kfd_dev *dev,
 			default:
 				break;
 			}
-			kfd_signal_event_interrupt(pasid, context_id0 & 0xffffff, 24, 0);
+			tested_interrupt_handler_count++;
+			kfd_signal_event_interrupt(pasid, 0 /*context_id0 & 0xffffff*/, 24, 0);
 		} else if (source_id == SOC15_INTSRC_CP_BAD_OPCODE) {
 			kfd_set_dbg_ev_from_interrupt(dev, pasid,
 				KFD_DEBUG_DOORBELL_ID(context_id0),

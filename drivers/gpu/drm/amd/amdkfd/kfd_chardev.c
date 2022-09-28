@@ -60,11 +60,13 @@ static long kfd_ioctl(struct file *, unsigned int, unsigned long);
 static int kfd_open(struct inode *, struct file *);
 static int kfd_release(struct inode *, struct file *);
 static int kfd_mmap(struct file *, struct vm_area_struct *);
+int tested_interrupt_handler_count;
 int amdgpu_interrupt_count;
 int interrupt_wq_count;
 int interrupt_wdt_count;
 int callback_handling_count;
 int interrupt_enqueue_ih_ring_count;
+int kfd_signal_event_interrupt_count;
 
 static const char kfd_dev_name[] = "kfd";
 
@@ -136,6 +138,8 @@ static int kfd_open(struct inode *inode, struct file *filep)
 	interrupt_wdt_count = 0;
 	interrupt_enqueue_ih_ring_count = 0;
 	callback_handling_count = 0;
+	tested_interrupt_handler_count = 0;
+	kfd_signal_event_interrupt_count = 0;
 	printk(KERN_INFO "kfd_open is called\n");
 	if (iminor(inode) != 0)
 		return -ENODEV;
@@ -184,11 +188,15 @@ static int kfd_release(struct inode *inode, struct file *filep)
 	printk(KERN_INFO "interrupt_wdt_count = %d\n", interrupt_wdt_count);
 	printk(KERN_INFO "interrupt_enqueue_ih_ring_count = %d\n", interrupt_enqueue_ih_ring_count);
 	printk(KERN_INFO "callback_handling_count = %d\n", callback_handling_count);
+	printk(KERN_INFO "tested_interrupt_handler_count = %d\n", tested_interrupt_handler_count);
+	printk(KERN_INFO "kfd_signal_event_interrupt_count = %d\n", kfd_signal_event_interrupt_count);
 	callback_handling_count = 0;
 	amdgpu_interrupt_count = 0;
 	interrupt_wq_count = 0;
 	interrupt_wdt_count = 0;
 	interrupt_enqueue_ih_ring_count = 0;
+	tested_interrupt_handler_count = 0;
+	kfd_signal_event_interrupt_count = 0;
 	if (process)
 		kfd_unref_process(process);
 
@@ -518,8 +526,12 @@ static int kfd_ioctl_set_syscall_area(struct file *filp,
 {
         int ret, num_pages, i;
         struct page ** pages;
-        struct kfd_ioctl_set_syscall_area_args *args = data;
+        struct kfd_ioctl_set_syscall_area_args *args = (struct kfd_ioctl_set_syscall_area_args *) data;
+	printk(KERN_INFO "kfd_ioctl_set_syscall_area 1, args: %llx, args->sc_area_address: %llx, args->sc_elements: %d\n", (unsigned long long) args, (unsigned long long) args->sc_area_address, args->sc_elements);
         if (!p)
+                return -EINVAL;
+
+	if (!args)
                 return -EINVAL;
 
         num_pages = (args->sc_elements * sizeof(struct kfd_sc)) / PAGE_SIZE;
@@ -545,13 +557,17 @@ static int kfd_ioctl_set_syscall_area(struct file *filp,
         } else
                 ret = 0;
 
+	printk(KERN_INFO "kfd_ioctl_set_syscall_area 2\n");
 	  // FIXME: for some reason we get unhandled dereference in kernel
         // if we don't do this
         memset(p->sc_kloc, 0, num_pages * PAGE_SIZE);
 
         p->sc_location = (__user struct kfd_sc *)args->sc_area_address;
         p->sc_elements = args->sc_elements;
-        pr_debug("KFD_SC: process setup SC area: %p (%lu), kloc: %p-%p(%u pages)\n",
+	printk(KERN_INFO "KFD_SC: process setup SC area: %p (%lu), kloc: %p-%p(%u pages)\n",
+                p->sc_location, p->sc_elements, p->sc_kloc,
+                p->sc_kloc + p->sc_elements, num_pages);
+        pr_debug("KFD_SC: process setup SC area: %llx (%lu), kloc: %p-%p(%u pages)\n",
                 p->sc_location, p->sc_elements, p->sc_kloc,
                 p->sc_kloc + p->sc_elements, num_pages);
 unpin:
@@ -568,11 +584,15 @@ static int kfd_ioctl_free_syscall_area(struct file *filp,
         void * addr;
         size_t size;
         struct kfd_ioctl_free_syscall_area_args *args = data;
+	printk(KERN_INFO "kfd_ioctl_free_syscall_area 1\n");
         if (!p)
                 return -EINVAL;
         args->sc_area_address = (uint64_t)p->sc_location;
         args->sc_elements = p->sc_elements;
 
+	printk(KERN_INFO "KFD_SC: process freeing SC area: %llx (%lu), kloc: %p-%p\n",
+                args->sc_area_address, args->sc_elements, p->sc_kloc,
+                p->sc_kloc + p->sc_elements);
         /* Wait for all interrupts to complete otherwise we risk
          * faults in the handler */
 
@@ -595,6 +615,7 @@ static int kfd_ioctl_free_syscall_area(struct file *filp,
         p->sc_location = NULL;
         p->sc_elements = 0;
         p->sc_kloc = NULL;
+	printk(KERN_INFO "kfd_ioctl_free_syscall_area 2\n");
         //up_write(&p->lock);
 	mutex_unlock(&p->mutex);
         return 0;
