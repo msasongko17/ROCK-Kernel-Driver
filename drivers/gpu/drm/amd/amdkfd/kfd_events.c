@@ -60,6 +60,8 @@ struct kfd_signal_page {
 	bool need_to_free_pages;
 };
 
+#define INTERRUPT_DATA_BITS 8
+
 static uint64_t *page_slots(struct kfd_signal_page *page)
 {
 	return page->kernel_address;
@@ -84,6 +86,7 @@ static struct kfd_signal_page *allocate_signal_page(struct kfd_process *p)
 	       KFD_SIGNAL_EVENT_LIMIT * 8);
 
 	page->kernel_address = backing_store;
+
 	page->need_to_free_pages = true;
 	pr_debug("Allocated new event signal page at %p, for process %p\n",
 			page, p);
@@ -705,7 +708,7 @@ static void set_event_from_interrupt(struct kfd_process *p,
 }
 
 void kfd_signal_event_interrupt(u32 pasid, uint32_t partial_id,
-				uint32_t valid_id_bits)
+				uint32_t valid_id_bits, uint32_t data)
 {
 	struct kfd_event *ev = NULL;
 
@@ -718,6 +721,19 @@ void kfd_signal_event_interrupt(u32 pasid, uint32_t partial_id,
 
 	if (!p)
 		return; /* Presumably process exited. */
+
+	if ((valid_id_bits >= INTERRUPT_DATA_BITS) && (partial_id == 0)) {
+                // Use p->lock to track syscall activity
+                // TODO remove this
+                //down_read(&p->lock);
+		mutex_lock(&p->mutex);
+                kfd_syscall(p, data);
+                //up_read(&p->lock);
+		mutex_unlock(&p->mutex);
+                // Release the reference taken by lookup_process_pasid
+                kfd_unref_process(p);
+                return;
+        }	
 
 	mutex_lock(&p->event_mutex);
 

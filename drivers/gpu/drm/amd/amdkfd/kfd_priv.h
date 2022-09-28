@@ -1540,8 +1540,8 @@ int kfd_wait_on_events(struct kfd_process *p,
 		       uint32_t num_events, void __user *data,
 		       bool all, uint32_t user_timeout_ms,
 		       uint32_t *wait_result);
-void kfd_signal_event_interrupt(u32 pasid, uint32_t partial_id,
-				uint32_t valid_id_bits);
+//void kfd_signal_event_interrupt(u32 pasid, uint32_t partial_id,
+//				uint32_t valid_id_bits, uint32_t data);
 void kfd_signal_iommu_event(struct kfd_dev *dev,
 			    u32 pasid, unsigned long address,
 			    bool is_write_requested, bool is_execute_requested);
@@ -1632,4 +1632,6 @@ static inline void kfd_debugfs_fini(void) {}
 
 #endif
 
+/* System calls */
+int kfd_syscall(struct kfd_process *p, unsigned wf_id);
 #endif
