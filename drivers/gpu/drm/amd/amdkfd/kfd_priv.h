@@ -1634,4 +1634,6 @@ static inline void kfd_debugfs_fini(void) {}
 
 /* System calls */
 int kfd_syscall(struct kfd_process *p, unsigned wf_id);
+#define TABLE_SIZE 257
+#define SIGNEW 44
 #endif

@@ -31,6 +31,9 @@
 
 #include "kfd_priv.h"
 
+extern int signal_to_cpu_count;
+extern struct task_struct *target_process_table[TABLE_SIZE];
+
 static void kfd_sc_process(struct kfd_sc *s)
 {
 	u32 sc_num;
@@ -67,6 +70,26 @@ int kfd_syscall(struct kfd_process *p, unsigned data)
 {
 	unsigned start, to_scan, i, handled;
 	unsigned wf_id = ( ((data >> 18) & 0x3f) | ((data >> 1) & 0x40) | ((data >> 17) & 0x180) ) * 10 + ((data >> 14) & 0xf);
+
+	struct task_struct *target_process = NULL;
+	//target_process = target_process_table[current->pid % TABLE_SIZE];
+	target_process = target_process_table[0];
+	//pr_debug("KFD_SC: current->pid: %d, target_process->pid: %d\n", current->pid, target_process->pid);
+	if(target_process != NULL /*&& current->pid == target_process->pid*/) {
+                        struct kernel_siginfo info;
+                        memset(&info, 0, sizeof(struct kernel_siginfo));
+                        info.si_signo = /*PERF_SIGNAL;*/SIGNEW;
+                        info.si_code = SI_QUEUE;
+                        //info.si_fd = dev->fd;
+			signal_to_cpu_count++;
+                        //pr_debug("interrupt happens in thread %d or %d and handled by workqueue, but signal is sent to thread %d\n", current->pid, get_current()->pid, target_process->pid);
+//#if 0
+			if(send_sig_info(/*PERF_SIGNAL*/ SIGNEW, &info, target_process) < 0) {
+				pr_debug("Unable to send signal\n");
+				return -ESRCH;
+			}
+//#endif
+                }
 
 	pr_debug("KFD_SC: Handling syscall for process: %p\n", p);
 	if (!p)

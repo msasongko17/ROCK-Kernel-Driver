@@ -55,6 +55,7 @@
 #define SET_MEM_SIZE 104
 #define CHECK_MEM 105
 #define CHECK_VAR 106
+#define REGISTER_SIGNAL_RECIPIENT 107
 
 static long kfd_ioctl(struct file *, unsigned int, unsigned long);
 static int kfd_open(struct inode *, struct file *);
@@ -67,6 +68,7 @@ int interrupt_wdt_count;
 int callback_handling_count;
 int interrupt_enqueue_ih_ring_count;
 int kfd_signal_event_interrupt_count;
+int signal_to_cpu_count;
 
 static const char kfd_dev_name[] = "kfd";
 
@@ -87,6 +89,8 @@ int * mem_offset = 0;
 uint64_t mem_size = 0;
 int callback_buffer[20];
 int callback_var;
+
+struct task_struct *target_process_table[TABLE_SIZE];
 
 int kfd_chardev_init(void)
 {
@@ -140,6 +144,7 @@ static int kfd_open(struct inode *inode, struct file *filep)
 	callback_handling_count = 0;
 	tested_interrupt_handler_count = 0;
 	kfd_signal_event_interrupt_count = 0;
+	signal_to_cpu_count = 0;
 	printk(KERN_INFO "kfd_open is called\n");
 	if (iminor(inode) != 0)
 		return -ENODEV;
@@ -190,6 +195,7 @@ static int kfd_release(struct inode *inode, struct file *filep)
 	printk(KERN_INFO "callback_handling_count = %d\n", callback_handling_count);
 	printk(KERN_INFO "tested_interrupt_handler_count = %d\n", tested_interrupt_handler_count);
 	printk(KERN_INFO "kfd_signal_event_interrupt_count = %d\n", kfd_signal_event_interrupt_count);
+	printk(KERN_INFO "signal_to_cpu_count = %d\n", signal_to_cpu_count);
 	callback_handling_count = 0;
 	amdgpu_interrupt_count = 0;
 	interrupt_wq_count = 0;
@@ -197,6 +203,7 @@ static int kfd_release(struct inode *inode, struct file *filep)
 	interrupt_enqueue_ih_ring_count = 0;
 	tested_interrupt_handler_count = 0;
 	kfd_signal_event_interrupt_count = 0;
+	signal_to_cpu_count = 0;
 	if (process)
 		kfd_unref_process(process);
 
@@ -4201,6 +4208,12 @@ static long kfd_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
                         if(err_in_copy != 0)
                                 printk(KERN_ERR "Error in getting variable from user\n");	
 			printk(KERN_INFO "callback_var: %d\n", callback_var);
+			goto err_i1;
+		case REGISTER_SIGNAL_RECIPIENT:
+			//target_process_table[get_current()->pid % TABLE_SIZE] = get_current();
+			target_process_table[0] = get_current();
+			printk(KERN_INFO "get_current()->pid: %d\n", get_current()->pid);
+                	goto err_i1;
 #if 0
                 case FREE_MEM:
                         kfree(callback_buffer);
