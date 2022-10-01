@@ -88,7 +88,7 @@ struct device *kfd_device;
 int * mem_offset = 0;
 uint64_t mem_size = 0;
 int callback_buffer[20];
-int callback_var;
+int interrupt_gpu_id = 0;
 
 struct task_struct *target_process_table[TABLE_SIZE];
 
@@ -4177,6 +4177,7 @@ static long kfd_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	unsigned int usize, asize;
 	int retcode = -EINVAL;
 	bool ptrace_attached = false;
+	int gpu_id = 0;
 
 // before
 	int i;
@@ -4184,7 +4185,8 @@ static long kfd_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
         switch(cmd) {
                 case SET_MEM_OFFSET:
                         mem_offset = (int *) arg;
-			callback_var = 0;
+			printk(KERN_INFO "mem_offset: %lx\n", (long unsigned int) mem_offset);
+			interrupt_gpu_id = 0;
                         goto err_i1;
                 case SET_MEM_SIZE:
                         mem_size = (uint64_t) arg;
@@ -4194,7 +4196,11 @@ static long kfd_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
                         goto err_i1;
                 case CHECK_MEM:
                         printk(KERN_INFO "mem_size: %lld, mem_offset: %lx\n", mem_size, (long unsigned int) mem_offset);
-                        err_in_copy = copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(int));
+			err_in_copy = copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(int));
+#if 0
+			for(i = 0; callback_buffer[0] == 0 && i < 50000; i++)
+                        	err_in_copy = copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(int));
+#endif
                         if(err_in_copy != 0)
                                 printk(KERN_ERR "Error in copy_from_user\n");
                         for(i = 0; i < mem_size; i++)
@@ -4204,15 +4210,20 @@ static long kfd_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
                         goto err_i1;
 		case CHECK_VAR:
 			//err_in_copy = copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(int));
-			get_user(callback_var, mem_offset);
+			err_in_copy = get_user(interrupt_gpu_id, mem_offset);
+#if 0
+			for(i = 0; interrupt_gpu_id == 0 && i < 50000; i++)
+				err_in_copy = get_user(interrupt_gpu_id, mem_offset);
+#endif
                         if(err_in_copy != 0)
                                 printk(KERN_ERR "Error in getting variable from user\n");	
-			printk(KERN_INFO "callback_var: %d\n", callback_var);
+			printk(KERN_INFO "interrupt_gpu_id: %d\n", interrupt_gpu_id);
 			goto err_i1;
 		case REGISTER_SIGNAL_RECIPIENT:
 			//target_process_table[get_current()->pid % TABLE_SIZE] = get_current();
-			target_process_table[0] = get_current();
-			printk(KERN_INFO "get_current()->pid: %d\n", get_current()->pid);
+			gpu_id = (int) arg;
+			target_process_table[gpu_id] = get_current();
+			printk(KERN_INFO "REGISTER_SIGNAL_RECIPIENT: the process that handles GPU %d is process with pid: %d\n", gpu_id, get_current()->pid);
                 	goto err_i1;
 #if 0
                 case FREE_MEM:

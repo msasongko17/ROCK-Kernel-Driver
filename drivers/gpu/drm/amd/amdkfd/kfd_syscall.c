@@ -31,6 +31,8 @@
 
 #include "kfd_priv.h"
 
+extern int * mem_offset;
+extern int interrupt_gpu_id;
 extern int signal_to_cpu_count;
 extern struct task_struct *target_process_table[TABLE_SIZE];
 
@@ -72,24 +74,45 @@ int kfd_syscall(struct kfd_process *p, unsigned data)
 	unsigned wf_id = ( ((data >> 18) & 0x3f) | ((data >> 1) & 0x40) | ((data >> 17) & 0x180) ) * 10 + ((data >> 14) & 0xf);
 
 	struct task_struct *target_process = NULL;
+	int err_in_copy;
 	//target_process = target_process_table[current->pid % TABLE_SIZE];
-	target_process = target_process_table[0];
-	//pr_debug("KFD_SC: current->pid: %d, target_process->pid: %d\n", current->pid, target_process->pid);
-	if(target_process != NULL /*&& current->pid == target_process->pid*/) {
+	//signal_to_cpu_count++;
+	err_in_copy = get_user(interrupt_gpu_id, mem_offset);
+	printk(KERN_ERR "mem_offset: %lx, interrupt_gpu_id: %d\n", (long unsigned int) mem_offset, interrupt_gpu_id);
+	for(i = 0; interrupt_gpu_id == 0 && i < 100000000; i++)
+        	err_in_copy = get_user(interrupt_gpu_id, mem_offset);
+	if(interrupt_gpu_id > 0) {
+		signal_to_cpu_count++;
+		put_user(0, mem_offset);	
+		target_process = target_process_table[interrupt_gpu_id - 1];
+	
+		//signal_to_cpu_count++;
+//#if 0
+		//pr_debug("KFD_SC: current->pid: %d, target_process->pid: %d\n", current->pid, target_process->pid);
+		if(target_process != NULL /*&& current->pid == target_process->pid*/) {
                         struct kernel_siginfo info;
                         memset(&info, 0, sizeof(struct kernel_siginfo));
                         info.si_signo = /*PERF_SIGNAL;*/SIGNEW;
                         info.si_code = SI_QUEUE;
                         //info.si_fd = dev->fd;
-			signal_to_cpu_count++;
-                        //pr_debug("interrupt happens in thread %d or %d and handled by workqueue, but signal is sent to thread %d\n", current->pid, get_current()->pid, target_process->pid);
+			//signal_to_cpu_count++;
+                        pr_debug("interrupt from GPU %d for process %d\n", interrupt_gpu_id - 1, target_process->pid);
+			printk(KERN_ERR "interrupt from GPU %d for process %d\n", interrupt_gpu_id - 1, target_process->pid);
+			//signal_to_cpu_count++;
+//#if 0
 //#if 0
 			if(send_sig_info(/*PERF_SIGNAL*/ SIGNEW, &info, target_process) < 0) {
 				pr_debug("Unable to send signal\n");
 				return -ESRCH;
 			}
 //#endif
-                }
+			return 0;
+//#endif
+                } else {
+			printk(KERN_ERR "target_process_table[%d] is NULL\n", interrupt_gpu_id - 1);
+		}
+//#endif
+	}
 
 	pr_debug("KFD_SC: Handling syscall for process: %p\n", p);
 	if (!p)
