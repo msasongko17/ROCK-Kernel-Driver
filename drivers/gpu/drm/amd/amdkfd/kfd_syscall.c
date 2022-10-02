@@ -80,7 +80,7 @@ int kfd_syscall(struct kfd_process *p, unsigned data)
 	//err_in_copy = get_user(interrupt_gpu_id, mem_offset);
 	err_in_copy = copy_from_user (&interrupt_gpu_id, mem_offset, sizeof(int));
 	printk(KERN_ERR "mem_offset: %lx, interrupt_gpu_id: %d\n", (long unsigned int) mem_offset, interrupt_gpu_id);
-	for(i = 0; interrupt_gpu_id == 0 && i < 200000; i++)
+	for(i = 0; interrupt_gpu_id == 0 && i < 5; i++)
         	//err_in_copy = get_user(interrupt_gpu_id, mem_offset);
 		err_in_copy = copy_from_user (&interrupt_gpu_id, mem_offset, sizeof(int));
 	if(interrupt_gpu_id > 0) {
