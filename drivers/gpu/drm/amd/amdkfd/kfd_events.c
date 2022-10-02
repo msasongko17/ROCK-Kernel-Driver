@@ -721,7 +721,7 @@ void kfd_signal_event_interrupt(u32 pasid, uint32_t partial_id,
 	 */
 	struct kfd_process *p = kfd_lookup_process_by_pasid(pasid);
 
-	//kfd_signal_event_interrupt_count++;
+	kfd_signal_event_interrupt_count++;
 	if (!p)
 		return; /* Presumably process exited. */
 	//kfd_signal_event_interrupt_count++;

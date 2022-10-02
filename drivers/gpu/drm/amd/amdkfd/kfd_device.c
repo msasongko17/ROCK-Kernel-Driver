@@ -770,6 +770,7 @@ static inline void kfd_queue_work(struct workqueue_struct *wq,
 	queue_work_on(new_cpu, wq, work);
 }
 
+#if 0
 /* This is called directly from KGD at ISR. */
 void kgd2kfd_interrupt(struct kfd_dev *kfd, const void *ih_ring_entry)
 {
@@ -795,6 +796,33 @@ void kgd2kfd_interrupt(struct kfd_dev *kfd, const void *ih_ring_entry)
 		//kfd_queue_work(kfd->ih_wq, &kfd->interrupt_work);
 
 	spin_unlock_irqrestore(&kfd->interrupt_lock, flags);
+}
+#endif
+
+void kgd2kfd_interrupt(struct kfd_dev *kfd, const void *ih_ring_entry)
+{
+        uint32_t patched_ihre[KFD_MAX_RING_ENTRY_SIZE];
+        bool is_patched = false;
+        unsigned long flags;
+
+        if (!kfd->init_complete)
+                return;
+
+        if (kfd->device_info.ih_ring_entry_size > sizeof(patched_ihre)) {
+                dev_err_once(kfd_device, "Ring entry too small\n");
+                return;
+        }
+
+        spin_lock_irqsave(&kfd->interrupt_lock, flags);
+
+        if (kfd->interrupts_active
+            && interrupt_is_wanted(kfd, ih_ring_entry,
+                                   patched_ihre, &is_patched)
+            && enqueue_ih_ring_entry(kfd,
+                                     is_patched ? patched_ihre : ih_ring_entry))
+                kfd_queue_work(kfd->ih_wq, &kfd->interrupt_work);
+
+        spin_unlock_irqrestore(&kfd->interrupt_lock, flags);
 }
 
 int kgd2kfd_quiesce_mm(struct mm_struct *mm)

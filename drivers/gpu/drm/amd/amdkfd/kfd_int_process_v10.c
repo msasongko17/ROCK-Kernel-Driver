@@ -75,6 +75,8 @@
 #define KFD_DEBUG_CP_BAD_OP_ECODE(ctxid0) (((ctxid0) & 0x3ffffff)	\
 				>> KFD_CONTEXT_ID0_DEBUG_TRAP_CODE_SHIFT)
 
+extern int tested_interrupt_handler_count;
+
 static bool event_interrupt_isr_v10(struct kfd_dev *dev,
 					const uint32_t *ih_ring_entry,
 					uint32_t *patched_ihre,
@@ -124,6 +126,7 @@ static void event_interrupt_wq_v10(struct kfd_dev *dev,
 	uint16_t source_id, client_id, pasid, vmid;
 	uint32_t context_id0, context_id1;
 
+	tested_interrupt_handler_count++;
 	source_id = SOC15_SOURCE_ID_FROM_IH_ENTRY(ih_ring_entry);
 	client_id = SOC15_CLIENT_ID_FROM_IH_ENTRY(ih_ring_entry);
 	pasid = SOC15_PASID_FROM_IH_ENTRY(ih_ring_entry);

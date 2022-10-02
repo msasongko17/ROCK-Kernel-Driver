@@ -396,7 +396,7 @@ static void event_interrupt_wq_v9(struct kfd_dev *dev,
 			default:
 				break;
 			}
-			tested_interrupt_handler_count++;
+			//tested_interrupt_handler_count++;
 			kfd_signal_event_interrupt(pasid, 0 /*context_id0 & 0xffffff*/, 24, 0);
 		} else if (source_id == SOC15_INTSRC_CP_BAD_OPCODE) {
 			kfd_set_dbg_ev_from_interrupt(dev, pasid,

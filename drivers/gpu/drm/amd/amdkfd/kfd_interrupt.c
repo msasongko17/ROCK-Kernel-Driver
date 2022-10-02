@@ -120,7 +120,7 @@ static void interrupt_wdt(struct work_struct *work)
         spin_unlock_irqrestore(&kfd->interrupt_lock, flags);
 }
 
-#if 0
+//#if 0
 int kfd_interrupt_init(struct kfd_dev *kfd)
 {
 	int r;
@@ -155,8 +155,9 @@ int kfd_interrupt_init(struct kfd_dev *kfd)
 
 	return 0;
 }
-#endif
+//#endif
 
+#if 0
 int kfd_interrupt_init(struct kfd_dev *kfd)
 {
         spin_lock_init(&kfd->interrupt_lock);
@@ -177,7 +178,32 @@ int kfd_interrupt_init(struct kfd_dev *kfd)
 
         return 0;
 }
+#endif
 
+void kfd_interrupt_exit(struct kfd_dev *kfd)
+{
+        /*
+         * Stop the interrupt handler from writing to the ring and scheduling
+         * workqueue items. The spinlock ensures that any interrupt running
+         * after we have unlocked sees interrupts_active = false.
+         */
+        unsigned long flags;
+
+        spin_lock_irqsave(&kfd->interrupt_lock, flags);
+        kfd->interrupts_active = false;
+        spin_unlock_irqrestore(&kfd->interrupt_lock, flags);
+
+        /*
+         * flush_work ensures that there are no outstanding
+         * work-queue items that will access interrupt_ring. New work items
+         * can't be created because we stopped interrupt handling above.
+         */
+        flush_workqueue(kfd->ih_wq);
+
+        kfifo_free(&kfd->ih_fifo);
+}
+
+#if 0
 void kfd_interrupt_exit(struct kfd_dev *kfd)
 {
 	/*
@@ -213,6 +239,23 @@ void kfd_interrupt_exit(struct kfd_dev *kfd)
         destroy_workqueue(wq);
 	//flush_scheduled_work();
 }
+#endif
+
+bool enqueue_ih_ring_entry(struct kfd_dev *kfd, const void *ih_ring_entry)
+{
+        int count;
+
+        count = kfifo_in(&kfd->ih_fifo, ih_ring_entry,
+                                kfd->device_info.ih_ring_entry_size);
+        if (count != kfd->device_info.ih_ring_entry_size) {
+                dev_dbg_ratelimited(kfd->adev->dev,
+                        "Interrupt ring overflow, dropping interrupt %d\n",
+                        count);
+                return false;
+        }
+
+        return true;
+}
 
 #if 0
 /*
@@ -243,7 +286,8 @@ bool enqueue_ih_ring_entry(struct kfd_dev *kfd,	const void *ih_ring_entry)
 
 	return true;
 }
-#endif
+//#endif
+
 
 bool enqueue_ih_ring_entry(struct kfd_dev *kfd, const void *ih_ring_entry)
 {
@@ -290,7 +334,7 @@ bool enqueue_ih_ring_entry(struct kfd_dev *kfd, const void *ih_ring_entry)
                kfd->irq_task_in_progress);
         return true;
 }
-
+#endif
 
 /*
  * Assumption: single reader/writer. This function is not re-entrant
@@ -307,7 +351,7 @@ static bool dequeue_ih_ring_entry(struct kfd_dev *kfd, void *ih_ring_entry)
 	return count == kfd->device_info.ih_ring_entry_size;
 }
 
-#if 0
+//#if 0
 static void interrupt_wq(struct work_struct *work)
 {
 	struct kfd_dev *dev = container_of(work, struct kfd_dev,
@@ -337,8 +381,9 @@ static void interrupt_wq(struct work_struct *work)
 		dev->device_info.event_interrupt_class->interrupt_wq(dev,
 								ih_ring_entry);
 }
-#endif
+//#endif
 
+#if 0
 /*
  * Assumption: single reader/writer. This function is not re-entrant
  */
@@ -357,6 +402,7 @@ static void interrupt_wq(struct work_struct *work)
         // nothing should touch this memory
         kfree(w);
 }
+#endif
 
 bool interrupt_is_wanted(struct kfd_dev *dev,
 			const uint32_t *ih_ring_entry,
