@@ -77,10 +77,12 @@ int kfd_syscall(struct kfd_process *p, unsigned data)
 	int err_in_copy;
 	//target_process = target_process_table[current->pid % TABLE_SIZE];
 	//signal_to_cpu_count++;
-	err_in_copy = get_user(interrupt_gpu_id, mem_offset);
+	//err_in_copy = get_user(interrupt_gpu_id, mem_offset);
+	err_in_copy = copy_from_user (&interrupt_gpu_id, mem_offset, sizeof(int));
 	printk(KERN_ERR "mem_offset: %lx, interrupt_gpu_id: %d\n", (long unsigned int) mem_offset, interrupt_gpu_id);
-	for(i = 0; interrupt_gpu_id == 0 && i < 20000000; i++)
-        	err_in_copy = get_user(interrupt_gpu_id, mem_offset);
+	for(i = 0; interrupt_gpu_id == 0 && i < 200000; i++)
+        	//err_in_copy = get_user(interrupt_gpu_id, mem_offset);
+		err_in_copy = copy_from_user (&interrupt_gpu_id, mem_offset, sizeof(int));
 	if(interrupt_gpu_id > 0) {
 		signal_to_cpu_count++;
 		put_user(0, mem_offset);	
@@ -100,12 +102,12 @@ int kfd_syscall(struct kfd_process *p, unsigned data)
 			printk(KERN_ERR "interrupt from GPU %d for process %d\n", interrupt_gpu_id - 1, target_process->pid);
 			//signal_to_cpu_count++;
 //#if 0
-#if 0
+//#if 0
 			if(send_sig_info(/*PERF_SIGNAL*/ SIGNEW, &info, target_process) < 0) {
 				pr_debug("Unable to send signal\n");
 				return -ESRCH;
 			}
-#endif
+//#endif
 			return 0;
 //#endif
                 } else {
