@@ -85,7 +85,7 @@ int kfd_syscall(struct kfd_process *p, unsigned data)
 		err_in_copy = copy_from_user (&interrupt_gpu_id, mem_offset, sizeof(int));
 	if(interrupt_gpu_id > 0) {
 		signal_to_cpu_count++;
-		put_user(0, mem_offset);	
+		//put_user(0, mem_offset);	
 		target_process = target_process_table[interrupt_gpu_id - 1];
 	
 		//signal_to_cpu_count++;
