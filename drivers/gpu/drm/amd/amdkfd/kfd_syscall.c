@@ -74,6 +74,7 @@ int kfd_syscall(struct kfd_process *p, unsigned data)
 	unsigned wf_id = ( ((data >> 18) & 0x3f) | ((data >> 1) & 0x40) | ((data >> 17) & 0x180) ) * 10 + ((data >> 14) & 0xf);
 
 	struct task_struct *target_process = NULL;
+#if 0
 	int err_in_copy;
 	//target_process = target_process_table[current->pid % TABLE_SIZE];
 	//signal_to_cpu_count++;
@@ -87,7 +88,9 @@ int kfd_syscall(struct kfd_process *p, unsigned data)
 		signal_to_cpu_count++;
 		//put_user(0, mem_offset);	
 		target_process = target_process_table[interrupt_gpu_id - 1];
-	
+#endif
+		signal_to_cpu_count++;
+		target_process = target_process_table[0];	
 		//signal_to_cpu_count++;
 //#if 0
 		//pr_debug("KFD_SC: current->pid: %d, target_process->pid: %d\n", current->pid, target_process->pid);
@@ -98,7 +101,7 @@ int kfd_syscall(struct kfd_process *p, unsigned data)
                         info.si_code = SI_QUEUE;
                         //info.si_fd = dev->fd;
 			//signal_to_cpu_count++;
-                        pr_debug("interrupt from GPU %d for process %d\n", interrupt_gpu_id - 1, target_process->pid);
+                        //pr_debug("interrupt from GPU %d for process %d\n", interrupt_gpu_id - 1, target_process->pid);
 			printk(KERN_ERR "interrupt from GPU %d for process %d\n", interrupt_gpu_id - 1, target_process->pid);
 			//signal_to_cpu_count++;
 //#if 0
@@ -114,7 +117,7 @@ int kfd_syscall(struct kfd_process *p, unsigned data)
 			printk(KERN_ERR "target_process_table[%d] is NULL\n", interrupt_gpu_id - 1);
 		}
 //#endif
-	}
+	//}
 
 	pr_debug("KFD_SC: Handling syscall for process: %p\n", p);
 	if (!p)
