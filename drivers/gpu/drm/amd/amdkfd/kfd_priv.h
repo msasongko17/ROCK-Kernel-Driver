@@ -1064,9 +1064,11 @@ struct kfd_process {
 
 	/* Queues are in paused stated because we are in the process of doing a CRIU checkpoint */
 	bool queues_paused;
-	__user struct kfd_sc *sc_location;
+	//__user struct kfd_sc *sc_location;
+	__user uint64_t *sc_location;
         size_t sc_elements;
-        struct kfd_sc *sc_kloc;
+        //struct kfd_sc *sc_kloc;
+	uint64_t *sc_kloc;
 };
 
 #define KFD_PROCESS_TABLE_SIZE 5 /* bits: 32 entries */

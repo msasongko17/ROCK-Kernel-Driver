@@ -541,7 +541,8 @@ static int kfd_ioctl_set_syscall_area(struct file *filp,
 	if (!args)
                 return -EINVAL;
 
-        num_pages = (args->sc_elements * sizeof(struct kfd_sc)) / PAGE_SIZE;
+        //num_pages = (args->sc_elements * sizeof(struct kfd_sc)) / PAGE_SIZE;
+	num_pages = (args->sc_elements * sizeof(uint64_t)) / PAGE_SIZE;
         pages = kcalloc(num_pages, sizeof(struct page *), GFP_KERNEL);
         if (!pages) {
                 pr_err("KFD_SC: Failed to allocate page array for %d pages\n",
@@ -568,8 +569,10 @@ static int kfd_ioctl_set_syscall_area(struct file *filp,
 	  // FIXME: for some reason we get unhandled dereference in kernel
         // if we don't do this
         memset(p->sc_kloc, 0, num_pages * PAGE_SIZE);
+	p->sc_kloc[0] = 44;
 
-        p->sc_location = (__user struct kfd_sc *)args->sc_area_address;
+        //p->sc_location = (__user struct kfd_sc *)args->sc_area_address;
+	p->sc_location = (__user uint64_t *)args->sc_area_address;
         p->sc_elements = args->sc_elements;
 	printk(KERN_INFO "KFD_SC: process setup SC area: %p (%lu), kloc: %p-%p(%u pages)\n",
                 p->sc_location, p->sc_elements, p->sc_kloc,
@@ -600,11 +603,14 @@ static int kfd_ioctl_free_syscall_area(struct file *filp,
 	printk(KERN_INFO "KFD_SC: process freeing SC area: %llx (%lu), kloc: %p-%p\n",
                 args->sc_area_address, args->sc_elements, p->sc_kloc,
                 p->sc_kloc + p->sc_elements);
+
+	printk(KERN_ERR "p->sc_kloc[0]: %ld\n", p->sc_kloc[0]);
         /* Wait for all interrupts to complete otherwise we risk
          * faults in the handler */
 
-        size = (p->sc_elements * sizeof(struct kfd_sc));
-
+        //size = (p->sc_elements * sizeof(struct kfd_sc));
+	size = (p->sc_elements * sizeof(uint64_t));
+	
         /* Handlers need read lock. Make sure we don't remove the area from
          * underneath them */
         //down_write(&p->lock);

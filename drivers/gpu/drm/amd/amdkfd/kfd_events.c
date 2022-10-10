@@ -34,6 +34,7 @@
 #include "kfd_iommu.h"
 #include <linux/device.h>
 
+extern int * mem_offset;
 /*
  * Wrapper around wait_queue_entry_t
  */
@@ -721,7 +722,7 @@ void kfd_signal_event_interrupt(u32 pasid, uint32_t partial_id,
 	 */
 	struct kfd_process *p = kfd_lookup_process_by_pasid(pasid);
 
-	kfd_signal_event_interrupt_count++;
+	//kfd_signal_event_interrupt_count++;
 	if (!p)
 		return; /* Presumably process exited. */
 	//kfd_signal_event_interrupt_count++;
@@ -739,6 +740,30 @@ void kfd_signal_event_interrupt(u32 pasid, uint32_t partial_id,
                 kfd_unref_process(p);
                 return;
         }	
+
+	if ((valid_id_bits >= INTERRUPT_DATA_BITS) && (partial_id == 1)) {
+                // Use p->lock to track syscall activity
+                // TODO remove this
+                //down_read(&p->lock);
+		int written_val = 44;
+		int loaded_val = 0;
+                mutex_lock(&p->mutex);
+                kfd_signal_event_interrupt_count++;
+		int err_in_copy = 0;
+		int i = 0;
+		do {
+			copy_to_user (mem_offset, &written_val, sizeof(int));
+			copy_from_user (&loaded_val, mem_offset, sizeof(int));
+			i++;
+		} while(loaded_val != 44 && i < 5000000);
+		printk(KERN_ERR "loaded_val: %d, written_val: %d, in pid: %d\n", loaded_val, written_val, get_current()->pid);
+                //kfd_trap_trigger(p, data);
+                //up_read(&p->lock);
+                mutex_unlock(&p->mutex);
+                // Release the reference taken by lookup_process_pasid
+                kfd_unref_process(p);
+                return;
+        }
 
 	mutex_lock(&p->event_mutex);
 

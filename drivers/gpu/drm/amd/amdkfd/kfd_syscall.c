@@ -142,6 +142,7 @@ int kfd_syscall(struct kfd_process *p, unsigned data)
 	handled = 0;
 	pr_debug("KFD_SC: scanning from: %d(%d-%p)\n", wf_id, start,
 		p->sc_kloc + start);
+#if 0
 retry:
 	BUG_ON(start + to_scan > p->sc_elements);
 	for (i = start; i < (start + to_scan); ++i) {
@@ -168,6 +169,7 @@ retry:
 	}
 	pr_debug("KFD_SC: Handled %u syscall requests in %u\n",
 		handled, to_scan);
+#endif
 
 	return 0;
 }
