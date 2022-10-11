@@ -34,7 +34,10 @@
 #include "kfd_iommu.h"
 #include <linux/device.h>
 
-extern int * mem_offset;
+extern uint64_t * mem_offset;
+extern uint64_t * user_data;
+extern uint64_t callback_buffer[20];
+extern uint64_t mem_size;
 /*
  * Wrapper around wait_queue_entry_t
  */
@@ -721,7 +724,7 @@ void kfd_signal_event_interrupt(u32 pasid, uint32_t partial_id,
 	 * running so the lookup function increments the process ref count.
 	 */
 	struct kfd_process *p = kfd_lookup_process_by_pasid(pasid);
-
+	int i;
 	//kfd_signal_event_interrupt_count++;
 	if (!p)
 		return; /* Presumably process exited. */
@@ -745,10 +748,13 @@ void kfd_signal_event_interrupt(u32 pasid, uint32_t partial_id,
                 // Use p->lock to track syscall activity
                 // TODO remove this
                 //down_read(&p->lock);
+#if 0
 		int written_val = 44;
 		int loaded_val = 0;
+#endif
                 mutex_lock(&p->mutex);
                 kfd_signal_event_interrupt_count++;
+#if 0
 		int err_in_copy = 0;
 		int i = 0;
 		do {
@@ -759,6 +765,13 @@ void kfd_signal_event_interrupt(u32 pasid, uint32_t partial_id,
 		printk(KERN_ERR "loaded_val: %d, written_val: %d, in pid: %d\n", loaded_val, written_val, get_current()->pid);
                 //kfd_trap_trigger(p, data);
                 //up_read(&p->lock);
+#endif
+#if 0
+		for(i = 0; i < 10; i++) {
+			user_data[i] = i;
+		}
+#endif
+		copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(uint64_t));
                 mutex_unlock(&p->mutex);
                 // Release the reference taken by lookup_process_pasid
                 kfd_unref_process(p);

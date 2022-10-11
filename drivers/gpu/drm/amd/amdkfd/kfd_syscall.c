@@ -31,7 +31,7 @@
 
 #include "kfd_priv.h"
 
-extern int * mem_offset;
+extern uint64_t * mem_offset;
 extern int interrupt_gpu_id;
 extern int signal_to_cpu_count;
 extern struct task_struct *target_process_table[TABLE_SIZE];

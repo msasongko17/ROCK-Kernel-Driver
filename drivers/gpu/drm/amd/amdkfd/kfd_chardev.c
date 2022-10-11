@@ -56,6 +56,9 @@
 #define CHECK_MEM 105
 #define CHECK_VAR 106
 #define REGISTER_SIGNAL_RECIPIENT 107
+#define SET_USER_MEM_OFFSET 108
+#define UPDATE_USER_MEM 109
+#define FREE_USER_MEM 110
 
 static long kfd_ioctl(struct file *, unsigned int, unsigned long);
 static int kfd_open(struct inode *, struct file *);
@@ -69,6 +72,9 @@ int callback_handling_count;
 int interrupt_enqueue_ih_ring_count;
 int kfd_signal_event_interrupt_count;
 int signal_to_cpu_count;
+
+struct  page *user_page;
+uint64_t * user_data;
 
 static const char kfd_dev_name[] = "kfd";
 
@@ -85,9 +91,9 @@ static int kfd_char_dev_major = -1;
 static struct class *kfd_class;
 struct device *kfd_device;
 
-int * mem_offset = 0;
+uint64_t * mem_offset = 0;
 uint64_t mem_size = 0;
-int callback_buffer[20];
+uint64_t callback_buffer[20];
 int interrupt_gpu_id = 0;
 
 struct task_struct *target_process_table[TABLE_SIZE];
@@ -4184,13 +4190,14 @@ static long kfd_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	int retcode = -EINVAL;
 	bool ptrace_attached = false;
 	int gpu_id = 0;
+	int res;
 
 // before
 	int i;
         int err_in_copy;
         switch(cmd) {
                 case SET_MEM_OFFSET:
-                        mem_offset = (int *) arg;
+                        mem_offset = (uint64_t *) arg;
 			printk(KERN_INFO "mem_offset: %lx\n", (long unsigned int) mem_offset);
 			interrupt_gpu_id = 0;
                         goto err_i1;
@@ -4202,7 +4209,7 @@ static long kfd_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
                         goto err_i1;
                 case CHECK_MEM:
                         printk(KERN_INFO "mem_size: %lld, mem_offset: %lx\n", mem_size, (long unsigned int) mem_offset);
-			err_in_copy = copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(int));
+			err_in_copy = copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(uint64_t));
 #if 0
 			for(i = 0; callback_buffer[0] == 0 && i < 50000; i++)
                         	err_in_copy = copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(int));
@@ -4211,7 +4218,7 @@ static long kfd_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
                                 printk(KERN_ERR "Error in copy_from_user\n");
                         for(i = 0; i < mem_size; i++)
                         	//*(mem_offset+i) = i;
-                        	printk(KERN_INFO "%d ", callback_buffer[i]);
+                        	printk(KERN_INFO "%ld ", callback_buffer[i]);
                         printk(KERN_INFO "\n");
                         goto err_i1;
 		case CHECK_VAR:
@@ -4231,6 +4238,21 @@ static long kfd_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 			target_process_table[gpu_id] = get_current();
 			printk(KERN_INFO "REGISTER_SIGNAL_RECIPIENT: the process that handles GPU %d is process with pid: %d\n", gpu_id, get_current()->pid);
                 	goto err_i1;
+		case SET_USER_MEM_OFFSET:
+			res = get_user_pages_fast((unsigned long)arg, 1, 1, &user_page);
+                        user_data = (uint64_t *) kmap(user_page);	
+			goto err_i1;
+		case UPDATE_USER_MEM:
+			for(i = 0; i < 10; i++) {
+                        	//user_data[i] = i;
+				asm volatile("mov %1, %0\n\t"
+                 			: "=m" (user_data[i])
+                 			: "r" (i));
+                        }	
+                        goto err_i1;
+		case FREE_USER_MEM:
+			put_page(user_page);
+                        goto err_i1;
 #if 0
                 case FREE_MEM:
                         kfree(callback_buffer);

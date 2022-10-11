@@ -68,9 +68,9 @@
 extern int amdgpu_interrupt_count;
 extern int callback_handling_count;
 
-extern int * mem_offset;
+extern uint64_t * mem_offset;
 extern uint64_t mem_size;
-extern int callback_buffer[20];
+extern uint64_t callback_buffer[20];
 extern int callback_var;
 
 const char *soc15_ih_clientid_name[] = {
