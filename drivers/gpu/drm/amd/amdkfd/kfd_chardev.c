@@ -196,7 +196,7 @@ static int kfd_open(struct inode *inode, struct file *filep)
 static int kfd_release(struct inode *inode, struct file *filep)
 {
 	struct kfd_process *process = filep->private_data;
-
+#if 0
 	printk(KERN_INFO "amdgpu_interrupt_count = %d\n", amdgpu_interrupt_count);
 	printk(KERN_INFO "interrupt_wq_count = %d\n", interrupt_wq_count);
 	printk(KERN_INFO "interrupt_wdt_count = %d\n", interrupt_wdt_count);
@@ -205,6 +205,7 @@ static int kfd_release(struct inode *inode, struct file *filep)
 	printk(KERN_INFO "tested_interrupt_handler_count = %d\n", tested_interrupt_handler_count);
 	printk(KERN_INFO "kfd_signal_event_interrupt_count = %d\n", kfd_signal_event_interrupt_count);
 	printk(KERN_INFO "signal_to_cpu_count = %d\n", signal_to_cpu_count);
+#endif
 	callback_handling_count = 0;
 	amdgpu_interrupt_count = 0;
 	interrupt_wq_count = 0;

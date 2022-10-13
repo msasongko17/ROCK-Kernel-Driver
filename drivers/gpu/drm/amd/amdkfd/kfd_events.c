@@ -38,6 +38,8 @@ extern uint64_t * mem_offset;
 extern uint64_t * user_data;
 extern uint64_t callback_buffer[20];
 extern uint64_t mem_size;
+extern int signal_to_cpu_count;
+extern struct task_struct *target_process_table[TABLE_SIZE];
 /*
  * Wrapper around wait_queue_entry_t
  */
@@ -755,28 +757,27 @@ void kfd_signal_event_interrupt(u32 pasid, uint32_t partial_id,
                 mutex_lock(&p->mutex);
                 kfd_signal_event_interrupt_count++;
 #if 0
-		int err_in_copy = 0;
-		int i = 0;
-		do {
-			copy_to_user (mem_offset, &written_val, sizeof(int));
-			copy_from_user (&loaded_val, mem_offset, sizeof(int));
-			i++;
-		} while(loaded_val != 44 && i < 5000000);
-		printk(KERN_ERR "loaded_val: %d, written_val: %d, in pid: %d\n", loaded_val, written_val, get_current()->pid);
-                //kfd_trap_trigger(p, data);
-                //up_read(&p->lock);
-#endif
-#if 0
-		for(i = 0; i < 10; i++) {
-			user_data[i] = i;
-		}
-#endif
-		//copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(uint64_t));
-//#if 0
 		for(i = 0; i < 10; i++) {
 			printk(KERN_ERR "in interrupt handler, user_data[%d]: %ld\n", i, user_data[i]);
 		}
-//#endif
+#endif
+		struct task_struct *target_process = NULL;
+		uint64_t interrupt_gpu_id = user_data[0];
+		if(interrupt_gpu_id > 0) {
+			signal_to_cpu_count++;
+			target_process = target_process_table[interrupt_gpu_id - 1];
+			if(target_process != NULL) {
+				struct kernel_siginfo info;
+                        	memset(&info, 0, sizeof(struct kernel_siginfo));
+                        	info.si_signo = SIGNEW;
+                        	info.si_code = SI_QUEUE;
+				//printk(KERN_ERR "in interrupt handler, interrupt from %ld and send a signal to process %d\n", interrupt_gpu_id, target_process->pid);
+				if(send_sig_info(SIGNEW, &info, target_process) < 0) {
+					pr_debug("Unable to send signal\n");
+                                	return;
+                        	}	
+			}
+		}
                 mutex_unlock(&p->mutex);
                 // Release the reference taken by lookup_process_pasid
                 kfd_unref_process(p);
