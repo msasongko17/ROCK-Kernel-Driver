@@ -56,9 +56,11 @@
 #define CHECK_MEM 105
 #define CHECK_VAR 106
 #define REGISTER_SIGNAL_RECIPIENT 107
-#define SET_USER_MEM_OFFSET 108
+#define SET_USER_PAGE_OFFSET 108
 #define UPDATE_USER_MEM 109
 #define FREE_USER_MEM 110
+#define CHECK_USER_MEM 111
+#define SET_USER_MEM_OFFSET 112
 
 static long kfd_ioctl(struct file *, unsigned int, unsigned long);
 static int kfd_open(struct inode *, struct file *);
@@ -75,6 +77,7 @@ int signal_to_cpu_count;
 
 struct  page *user_page;
 uint64_t * user_data;
+uint64_t user_offset = 0;
 
 static const char kfd_dev_name[] = "kfd";
 
@@ -4238,20 +4241,29 @@ static long kfd_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 			target_process_table[gpu_id] = get_current();
 			printk(KERN_INFO "REGISTER_SIGNAL_RECIPIENT: the process that handles GPU %d is process with pid: %d\n", gpu_id, get_current()->pid);
                 	goto err_i1;
-		case SET_USER_MEM_OFFSET:
+		case SET_USER_PAGE_OFFSET:
 			res = get_user_pages_fast((unsigned long)arg, 1, 1, &user_page);
                         user_data = (uint64_t *) kmap(user_page);	
 			goto err_i1;
+		case SET_USER_MEM_OFFSET:
+                        user_offset = (unsigned long)arg /sizeof(uint64_t);
+                        goto err_i1;
 		case UPDATE_USER_MEM:
-			for(i = 0; i < 10; i++) {
+			for(i = 0; i < 10;) {
                         	//user_data[i] = i;
 				asm volatile("mov %1, %0\n\t"
-                 			: "=m" (user_data[i])
+                 			: "=m" (user_data[user_offset + i])
                  			: "r" (i));
+				i = i+2;
                         }	
                         goto err_i1;
 		case FREE_USER_MEM:
 			put_page(user_page);
+                        goto err_i1;
+		case CHECK_USER_MEM:
+			for(i = 0; i < 10; i++) {
+				printk(KERN_ERR "user_data[%d]: %ld\n", i, user_data[user_offset + i]); 
+                        } 
                         goto err_i1;
 #if 0
                 case FREE_MEM:

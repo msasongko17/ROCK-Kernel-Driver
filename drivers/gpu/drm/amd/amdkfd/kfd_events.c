@@ -771,7 +771,12 @@ void kfd_signal_event_interrupt(u32 pasid, uint32_t partial_id,
 			user_data[i] = i;
 		}
 #endif
-		copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(uint64_t));
+		//copy_from_user (callback_buffer, mem_offset, mem_size * sizeof(uint64_t));
+//#if 0
+		for(i = 0; i < 10; i++) {
+			printk(KERN_ERR "in interrupt handler, user_data[%d]: %ld\n", i, user_data[i]);
+		}
+//#endif
                 mutex_unlock(&p->mutex);
                 // Release the reference taken by lookup_process_pasid
                 kfd_unref_process(p);
